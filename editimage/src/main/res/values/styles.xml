@@ -7,7 +7,8 @@
 
     <style name="EditImageTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <!-- Customize your theme here. -->
-
+        <item name="colorPrimary">@color/color_7b000000</item>
+        <item name="colorPrimaryDark">@color/color_7b000000</item>
     </style>
 
     <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
