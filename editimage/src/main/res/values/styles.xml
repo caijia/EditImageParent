@@ -1,0 +1,28 @@
+<resources>
+
+    <style name="EditImageLib">
+        <!-- Customize your theme here. -->
+
+    </style>
+
+    <style name="EditImageTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your theme here. -->
+
+    </style>
+
+    <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
+
+    <!--宽度和屏幕一致dialog-->
+    <style name="EditImageLib.Dialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowFrame">@null</item>            <!--是否有边框-->
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>         <!--是否浮现在activity之上-->
+        <item name="android:windowIsTranslucent">true</item>       <!--是否半透明-->
+        <item name="android:windowContentOverlay">@null</item>      <!--是否有遮盖-->
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">true</item>        <!--背景是否模糊显示-->
+    </style>
+
+</resources>
