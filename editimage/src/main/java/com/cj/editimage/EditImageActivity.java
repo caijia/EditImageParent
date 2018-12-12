@@ -78,6 +78,7 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         toolbar.setNavigationOnClickListener(v -> onBackPressed());
+        getSupportActionBar().setTitle("");
 
         handleIntent(getIntent());
 
