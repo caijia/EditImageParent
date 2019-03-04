@@ -29,11 +29,13 @@ import java.lang.ref.WeakReference;
 
 public class EditImageActivity extends AppCompatActivity implements View.OnClickListener {
 
+    /**
+     * 图片是否被编辑过
+     */
+    public static final String IS_EDITED = "extra:isEdited";
     private static final String EXTRA_IMAGE_PATH = "extra:imagePath";
-
     private EditImageView editImageView;
     private String imagePath;
-
     private RadioButton rbLine;
     private RadioButton rbOval;
     private RadioButton rbRect;
@@ -93,7 +95,12 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         getMenuInflater().inflate(R.menu.menu_edit_picture, menu);
         MenuItem item = menu.findItem(R.id.menu_save);
         item.setOnMenuItemClickListener(item1 -> {
-            savePicture();
+            if (editImageView.isEdited()) {
+                savePicture();
+
+            } else {
+                completeSaveBitmap();
+            }
             return false;
         });
         return super.onCreateOptionsMenu(menu);
@@ -193,7 +200,9 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         if (progressDialog != null) {
             progressDialog.dismissAllowingStateLoss();
         }
-        setResult(RESULT_OK);
+        Intent i = new Intent();
+        i.putExtra(IS_EDITED, editImageView.isEdited());
+        setResult(RESULT_OK, i);
         super.onBackPressed();
     }
 

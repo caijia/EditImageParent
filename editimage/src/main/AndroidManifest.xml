@@ -7,7 +7,6 @@
     <application>
         <activity
             android:name=".EditImageActivity"
-            android:process=":editImage"
             android:theme="@style/EditImageTheme" />
     </application>
 </manifest>

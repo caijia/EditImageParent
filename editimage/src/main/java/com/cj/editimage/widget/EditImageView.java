@@ -206,6 +206,15 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
         }
     }
 
+    /**
+     * 是否编辑过
+     *
+     * @return
+     */
+    public boolean isEdited() {
+        return !shapeList.isEmpty();
+    }
+
     private void drawShape(Canvas canvas, Shape s) {
         int shapeType = s.shapeType;
         switch (shapeType) {
