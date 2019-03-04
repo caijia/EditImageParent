@@ -34,8 +34,10 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
      */
     public static final String IS_EDITED = "extra:isEdited";
     private static final String EXTRA_IMAGE_PATH = "extra:imagePath";
+    private static final String EXTRA_BACK_IMAGE_PATH = "extra:backImagePath";
     private EditImageView editImageView;
     private String imagePath;
+    private String backImagePath;
     private RadioButton rbLine;
     private RadioButton rbOval;
     private RadioButton rbRect;
@@ -43,9 +45,10 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
     private InternalHandle handler;
     private ProgressDialog progressDialog;
 
-    public static Intent getIntent(Context context, String imagePath) {
+    public static Intent getIntent(Context context, String imagePath, String backImagePath) {
         Intent i = new Intent(context, EditImageActivity.class);
         i.putExtra(EXTRA_IMAGE_PATH, imagePath);
+        i.putExtra(EXTRA_BACK_IMAGE_PATH, backImagePath);
         return i;
     }
 
@@ -56,6 +59,7 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
 
         Bundle extras = intent.getExtras();
         imagePath = extras.getString(EXTRA_IMAGE_PATH);
+        backImagePath = extras.getString(EXTRA_BACK_IMAGE_PATH);
     }
 
     @Override
@@ -106,11 +110,17 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         return super.onCreateOptionsMenu(menu);
     }
 
+    private void backImage() {
+        Util.copyFile(this, imagePath, backImagePath);
+    }
+
     @SuppressLint("CheckResult")
     private void savePicture() {
         progressDialog = new ProgressDialog();
         progressDialog.show(getSupportFragmentManager(), "save");
         new Thread(() -> {
+            //如果编辑了图片备份原图
+            backImage();
             Bitmap customBitmap = editImageView.getCustomBitmap();
             saveBitmap(customBitmap);
             if (customBitmap != null && !customBitmap.isRecycled()) {

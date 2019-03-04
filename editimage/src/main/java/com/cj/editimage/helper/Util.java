@@ -12,7 +12,9 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 
@@ -81,6 +83,19 @@ public class Util {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    public static void copyFile(Context context, String sourcePath, String destPath) {
+        try (BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(sourcePath));
+             BufferedOutputStream outStream = new BufferedOutputStream(new FileOutputStream(destPath))) {
+            int len;
+            byte[] buffer = new byte[8096];
+            while ((len = inStream.read(buffer)) > 0) {
+                outStream.write(buffer, 0, len);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
