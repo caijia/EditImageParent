@@ -42,6 +42,7 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
     private RadioButton rbOval;
     private RadioButton rbRect;
     private RadioButton rbCancel;
+    private RadioButton rbScale;
     private InternalHandle handler;
     private ProgressDialog progressDialog;
 
@@ -75,11 +76,13 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         rbOval = findViewById(R.id.btn_oval);
         rbRect = findViewById(R.id.btn_rect);
         rbCancel = findViewById(R.id.btn_cancel);
+        rbScale = findViewById(R.id.btn_scale_translate);
 
         rbLine.setOnClickListener(this);
         rbOval.setOnClickListener(this);
         rbRect.setOnClickListener(this);
         rbCancel.setOnClickListener(this);
+        rbScale.setOnClickListener(this);
 
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -99,12 +102,7 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         getMenuInflater().inflate(R.menu.menu_edit_picture, menu);
         MenuItem item = menu.findItem(R.id.menu_save);
         item.setOnMenuItemClickListener(item1 -> {
-            if (editImageView.isEdited()) {
-                savePicture();
-
-            } else {
-                completeSaveBitmap();
-            }
+            savePicture();
             return false;
         });
         return super.onCreateOptionsMenu(menu);
@@ -119,7 +117,7 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         progressDialog = new ProgressDialog();
         progressDialog.show(getSupportFragmentManager(), "save");
         new Thread(() -> {
-            //如果编辑了图片备份原图
+            //备份原图
             backImage();
             Bitmap customBitmap = editImageView.getCustomBitmap();
             saveBitmap(customBitmap);
@@ -203,6 +201,8 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         } else if (v == rbCancel) {
             editImageView.cancelPreviousDraw();
 
+        } else if (v == rbScale) {
+            editImageView.scaleAndTranslate();
         }
     }
 

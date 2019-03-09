@@ -19,7 +19,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void editImage1(View view) {
-        String imagePath = Environment.getExternalStorageDirectory() + "/test1.jpg";
+        String imagePath = Environment.getExternalStorageDirectory() + "/test11.jpg";
         String backPath = Environment.getExternalStorageDirectory() + "/test11.jpg";
         Intent i = EditImageActivity.getIntent(this, imagePath, backPath);
         startActivityForResult(i, 100);

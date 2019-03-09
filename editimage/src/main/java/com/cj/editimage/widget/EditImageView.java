@@ -17,6 +17,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 
 import com.cj.editimage.helper.MoveGestureDetector;
 import com.cj.editimage.helper.Util;
@@ -27,7 +28,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class EditImageView extends AppCompatImageView implements MoveGestureDetector.OnMoveGestureListener {
+public class EditImageView extends AppCompatImageView implements MoveGestureDetector.OnMoveGestureListener, ScaleGestureDetector.OnScaleGestureListener {
 
     private static final int OVAL = 1;
     private static final int LINE = 2;
@@ -39,10 +40,13 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
     private Paint paint;
     private Shape shape;
     private MoveGestureDetector gestureDetector;
+    private ScaleGestureDetector scaleGesture;
     private Rect drawableBoundsRect;
     private Rect textBounds = new Rect();
     private Paint textPaint = new Paint();
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA);
+    private int pointerCount;
+    private boolean scaleAndTranslate = true;
 
     public EditImageView(Context context) {
         this(context, null);
@@ -57,10 +61,11 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
         shapeList = new ArrayList<>();
         setScaleType(ScaleType.MATRIX);
         gestureDetector = new MoveGestureDetector(context, this);
+        scaleGesture = new ScaleGestureDetector(context, this);
 
         paint = new Paint();
         paint.setAntiAlias(true);
-        paint.setStrokeWidth(Util.dpToPx(context, 1));
+        paint.setStrokeWidth(Util.dpToPx(context, 0.5f));
         paint.setColor(Color.RED);
         paint.setStyle(Paint.Style.STROKE);
 
@@ -68,6 +73,8 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        pointerCount = event.getPointerCount();
+        scaleGesture.onTouchEvent(event);
         gestureDetector.onTouchEvent(event);
         return true;
     }
@@ -117,13 +124,6 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
 
         RectF rectF = getDrawableBounds(imageMatrix);
         drawableBoundsRect = new Rect((int) rectF.left, (int) rectF.top, (int) rectF.right, (int) rectF.bottom);
-    }
-
-    @Override
-    public void onMoveGestureScroll(MotionEvent downEvent, MotionEvent currentEvent,
-                                    int pointerIndex, float dx, float dy, float distanceX,
-                                    float distanceY) {
-        addShapePoint(currentEvent);
     }
 
     private void addShapePoint(MotionEvent e) {
@@ -241,14 +241,17 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
     }
 
     public void drawOval() {
+        scaleAndTranslate = false;
         this.shapeType = OVAL;
     }
 
     public void drawLine() {
+        scaleAndTranslate = false;
         this.shapeType = LINE;
     }
 
     public void drawRect() {
+        scaleAndTranslate = false;
         this.shapeType = RECT;
     }
 
@@ -341,6 +344,41 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
     private float dpToPx(float dp) {
         return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp,
                 getResources().getDisplayMetrics());
+    }
+
+    @Override
+    public boolean onScale(ScaleGestureDetector detector) {
+        float scaleFactor = detector.getScaleFactor();
+        imageMatrix.postScale(scaleFactor, scaleFactor, detector.getFocusX(), detector.getFocusY());
+        setImageMatrix(imageMatrix);
+        return true;
+    }
+
+    @Override
+    public boolean onScaleBegin(ScaleGestureDetector detector) {
+        return pointerCount > 1;
+    }
+
+    @Override
+    public void onScaleEnd(ScaleGestureDetector detector) {
+
+    }
+
+    @Override
+    public void onMoveGestureScroll(MotionEvent downEvent, MotionEvent currentEvent,
+                                    int pointerIndex, float dx, float dy, float distanceX,
+                                    float distanceY) {
+        if (scaleAndTranslate) {
+            imageMatrix.postTranslate(dx, dy);
+            setImageMatrix(imageMatrix);
+
+        } else {
+            addShapePoint(currentEvent);
+        }
+    }
+
+    public void scaleAndTranslate() {
+        scaleAndTranslate = true;
     }
 
     private static class Shape {

@@ -34,6 +34,15 @@
         android:orientation="horizontal">
 
         <RadioButton
+            android:id="@+id/btn_scale_translate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:button="@null"
+            android:padding="16dp"
+            android:text="放大"
+            android:textColor="@color/selector_color_222222_1afa29" />
+
+        <RadioButton
             android:id="@+id/btn_line"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
