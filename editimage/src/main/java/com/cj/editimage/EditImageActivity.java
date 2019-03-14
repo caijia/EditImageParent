@@ -22,8 +22,12 @@ import com.cj.editimage.widget.EditImageView;
 import com.cj.editimage.widget.ProgressDialog;
 
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.lang.ref.WeakReference;
 
 
@@ -34,22 +38,35 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
      */
     public static final String IS_EDITED = "extra:isEdited";
     private static final String EXTRA_IMAGE_PATH = "extra:imagePath";
+    private static final String EXTRA_SAVE_IMAGE_PATH = "extra:saveImagePath";
     private static final String EXTRA_BACK_IMAGE_PATH = "extra:backImagePath";
     private EditImageView editImageView;
     private String imagePath;
+    private String saveImagePath;
     private String backImagePath;
-    private RadioButton rbLine;
+    private RadioButton rbPathLine;
     private RadioButton rbOval;
     private RadioButton rbRect;
     private RadioButton rbCancel;
     private RadioButton rbScale;
+    private RadioButton rbLine;
     private InternalHandle handler;
     private ProgressDialog progressDialog;
+
+    public static Intent getIntent(Context context, String imagePath, String saveImagePath,
+                                   String backImagePath) {
+        Intent i = new Intent(context, EditImageActivity.class);
+        i.putExtra(EXTRA_IMAGE_PATH, imagePath);
+        i.putExtra(EXTRA_BACK_IMAGE_PATH, backImagePath);
+        i.putExtra(EXTRA_SAVE_IMAGE_PATH, saveImagePath);
+        return i;
+    }
 
     public static Intent getIntent(Context context, String imagePath, String backImagePath) {
         Intent i = new Intent(context, EditImageActivity.class);
         i.putExtra(EXTRA_IMAGE_PATH, imagePath);
         i.putExtra(EXTRA_BACK_IMAGE_PATH, backImagePath);
+        i.putExtra(EXTRA_SAVE_IMAGE_PATH, imagePath);
         return i;
     }
 
@@ -60,6 +77,7 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
 
         Bundle extras = intent.getExtras();
         imagePath = extras.getString(EXTRA_IMAGE_PATH);
+        saveImagePath = extras.getString(EXTRA_SAVE_IMAGE_PATH);
         backImagePath = extras.getString(EXTRA_BACK_IMAGE_PATH);
     }
 
@@ -72,17 +90,19 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         Util.setTranslucentStatus(this);
         Toolbar toolbar = findViewById(R.id.toolbar);
         editImageView = findViewById(R.id.edit_image_view);
-        rbLine = findViewById(R.id.btn_line);
+        rbPathLine = findViewById(R.id.btn_line_path);
         rbOval = findViewById(R.id.btn_oval);
         rbRect = findViewById(R.id.btn_rect);
+        rbLine = findViewById(R.id.btn_line);
         rbCancel = findViewById(R.id.btn_cancel);
         rbScale = findViewById(R.id.btn_scale_translate);
 
-        rbLine.setOnClickListener(this);
+        rbPathLine.setOnClickListener(this);
         rbOval.setOnClickListener(this);
         rbRect.setOnClickListener(this);
         rbCancel.setOnClickListener(this);
         rbScale.setOnClickListener(this);
+        rbLine.setOnClickListener(this);
 
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -93,6 +113,8 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
 
         if (!TextUtils.isEmpty(imagePath)) {
             Bitmap smallBitmap = getSmallBitmap(imagePath, 1080, 1080);
+            String s = getDrawDataFromFile(imagePath);
+            editImageView.setShapeData(s);
             editImageView.setImageBitmap(smallBitmap);
         }
     }
@@ -109,7 +131,9 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
     }
 
     private void backImage() {
-        Util.copyFile(this, imagePath, backImagePath);
+        if (!TextUtils.equals(imagePath, backImagePath)) {
+            Util.copyFile(this, imagePath, backImagePath);
+        }
     }
 
     @SuppressLint("CheckResult")
@@ -124,8 +148,65 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
             if (customBitmap != null && !customBitmap.isRecycled()) {
                 customBitmap.recycle();
             }
+            saveDrawData();
             handler.sendEmptyMessage(200);
         }).start();
+    }
+
+    public String getDrawDataFromFile(String path) {
+        RandomAccessFile raf = null;
+        ByteArrayOutputStream out = null;
+        String result = null;
+        try {
+            File file = new File(path);
+            raf = new RandomAccessFile(file, "rw");
+            raf.seek(raf.length() - 4);
+            int length = raf.readInt();
+
+            raf.seek(raf.length() - 4 - length);
+            byte[] buffer = new byte[length];
+            out = new ByteArrayOutputStream();
+            raf.read(buffer);
+            out.write(buffer);
+            result = out.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (out != null) {
+                    out.close();
+                }
+
+                if (raf != null) {
+                    raf.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return result;
+    }
+
+    private void saveDrawData() {
+        if (editImageView == null) {
+            return;
+        }
+        try {
+            //将shapeString插入到文件末尾保存
+            String shapeString = editImageView.getShapeString();
+            File saveFile = new File(backImagePath);
+            RandomAccessFile raf = new RandomAccessFile(saveFile, "rw");
+            raf.seek(raf.length());
+            raf.writeBytes(shapeString);
+
+            //最后4位写入字符串长度
+            raf.seek(raf.length());
+            raf.write(shapeString.length());
+
+            raf.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -167,11 +248,10 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
 
         BufferedOutputStream bos = null;
         try {
-            bos = new BufferedOutputStream(new FileOutputStream(imagePath), 1024 * 8);
+            bos = new BufferedOutputStream(new FileOutputStream(saveImagePath), 1024 * 8);
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bos);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
-
         } finally {
             try {
                 if (bos != null) {
@@ -182,15 +262,20 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         }
     }
 
-    @Override
-    public void onBackPressed() {
-        savePicture();
-    }
+//    @Override
+//    public void onBackPressed() {
+//        boolean editBackImage = TextUtils.equals(imagePath, backImagePath);
+//        if (!editBackImage) {
+//            savePicture();
+//        } else {
+//            completeSaveBitmap();
+//        }
+//    }
 
     @Override
     public void onClick(View v) {
-        if (v == rbLine) {
-            editImageView.drawLine();
+        if (v == rbPathLine) {
+            editImageView.drawLinePath();
 
         } else if (v == rbOval) {
             editImageView.drawOval();
@@ -203,6 +288,9 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
 
         } else if (v == rbScale) {
             editImageView.scaleAndTranslate();
+
+        } else if (v == rbLine) {
+            editImageView.drawLine();
         }
     }
 

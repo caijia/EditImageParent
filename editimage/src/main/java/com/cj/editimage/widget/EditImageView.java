@@ -13,8 +13,8 @@ import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.support.v7.widget.AppCompatImageView;
+import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -22,31 +22,37 @@ import android.view.ScaleGestureDetector;
 import com.cj.editimage.helper.MoveGestureDetector;
 import com.cj.editimage.helper.Util;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class EditImageView extends AppCompatImageView implements MoveGestureDetector.OnMoveGestureListener, ScaleGestureDetector.OnScaleGestureListener {
+public class EditImageView extends AppCompatImageView implements
+        MoveGestureDetector.OnMoveGestureListener, ScaleGestureDetector.OnScaleGestureListener {
 
     private static final int OVAL = 1;
-    private static final int LINE = 2;
+    private static final int PATH = 2;
     private static final int RECT = 3;
+    private static final int LINE = 4;
     private Matrix imageMatrix = new Matrix();
     private boolean isHandle;
-    private int shapeType = LINE;
+    private int shapeType = PATH;
     private List<Shape> shapeList;
     private Paint paint;
     private Shape shape;
     private MoveGestureDetector gestureDetector;
     private ScaleGestureDetector scaleGesture;
-    private Rect drawableBoundsRect;
     private Rect textBounds = new Rect();
     private Paint textPaint = new Paint();
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA);
     private int pointerCount;
     private boolean scaleAndTranslate = true;
+    private Matrix invertImageMatrix = new Matrix();
 
     public EditImageView(Context context) {
         this(context, null);
@@ -65,10 +71,9 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
 
         paint = new Paint();
         paint.setAntiAlias(true);
-        paint.setStrokeWidth(Util.dpToPx(context, 0.5f));
+        paint.setStrokeWidth(Util.dpToPx(context, 1));
         paint.setColor(Color.RED);
         paint.setStyle(Paint.Style.STROKE);
-
     }
 
     @Override
@@ -116,17 +121,28 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
 
         float xOffset = (vWidth - scaleWidth) / 2;
         float yOffset = (vHeight - scaleHeight) / 2;
-
         imageMatrix.reset();
         imageMatrix.postScale(scale, scale);
         imageMatrix.postTranslate(xOffset, yOffset);
         setImageMatrix(imageMatrix);
+    }
 
-        RectF rectF = getDrawableBounds(imageMatrix);
-        drawableBoundsRect = new Rect((int) rectF.left, (int) rectF.top, (int) rectF.right, (int) rectF.bottom);
+    private float[] getMapPoint(float x, float y) {
+        invertImageMatrix.reset();
+        imageMatrix.invert(invertImageMatrix);
+        float[] src = {x, y};
+        if (invertImageMatrix == null) {
+            return src;
+        }
+        float[] dst = new float[2];
+        invertImageMatrix.mapPoints(dst, src);
+        return dst;
     }
 
     private void addShapePoint(MotionEvent e) {
+        float[] invertPoint = getMapPoint(e.getX(), e.getY());
+        float invertX = invertPoint[0];
+        float invertY = invertPoint[1];
         boolean contains = contains(e.getX(), e.getY());
         if (contains) {
             if (shape == null) {
@@ -136,18 +152,18 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
             }
 
             if (shape.hasPoint()) {
-                shape.addPoint(e.getX(), e.getY());
-                if (shapeType == LINE) {
-                    shape.path.lineTo(e.getX(), e.getY());
+                shape.addPoint(invertX, invertY);
+                if (shapeType == PATH) {
+                    shape.path.lineTo(invertX, invertY);
                 }
 
             } else {
-                shape.addPoint(e.getX(), e.getY());
-                if (shapeType == LINE) {
-                    shape.path.moveTo(e.getX(), e.getY());
+                shape.addPoint(invertX, invertY);
+                if (shapeType == PATH) {
+                    shape.path.moveTo(invertX, invertY);
                 }
             }
-            invalidate(drawableBoundsRect);
+            invalidate();
         }
     }
 
@@ -185,13 +201,11 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
     protected void onDraw(Canvas canvas) {
         Drawable drawable = getDrawable();
         if (drawable == null) {
-            Log.d("editImageView", "drawable is null");
             return;
         }
 
         final Bitmap originalBitmap = ((BitmapDrawable) drawable).getBitmap();
         if (originalBitmap == null || originalBitmap.isRecycled()) {
-            Log.d("editImageView", "bitmap recycled");
             return;
         }
         super.onDraw(canvas);
@@ -201,9 +215,12 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
             return;
         }
 
+        int save = canvas.save();
+        canvas.setMatrix(imageMatrix);
         for (Shape s : shapeList) {
             drawShape(canvas, s);
         }
+        canvas.restoreToCount(save);
     }
 
     /**
@@ -218,8 +235,16 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
     private void drawShape(Canvas canvas, Shape s) {
         int shapeType = s.shapeType;
         switch (shapeType) {
-            case LINE:
+            case PATH:
                 canvas.drawPath(s.path, paint);
+                break;
+
+            case LINE:
+                if (s.hasTwoPoint()) {
+                    PointF firstPoint = s.getFirstPoint();
+                    PointF lastPoint = s.getLastPoint();
+                    canvas.drawLine(firstPoint.x, firstPoint.y, lastPoint.x, lastPoint.y, paint);
+                }
                 break;
 
             case OVAL:
@@ -245,6 +270,11 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
         this.shapeType = OVAL;
     }
 
+    public void drawLinePath() {
+        scaleAndTranslate = false;
+        this.shapeType = PATH;
+    }
+
     public void drawLine() {
         scaleAndTranslate = false;
         this.shapeType = LINE;
@@ -261,7 +291,7 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
         }
 
         shapeList.remove(shapeList.size() - 1);
-        invalidate(drawableBoundsRect);
+        invalidate();
     }
 
     /**
@@ -284,25 +314,16 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
             originalBitmap.recycle();
         }
 
-        final float[] matrixValues = new float[9];
-        imageMatrix.getValues(matrixValues);
-        float tranX = matrixValues[Matrix.MTRANS_X];
-        float tranY = matrixValues[Matrix.MTRANS_Y];
-        float scale = matrixValues[Matrix.MSCALE_X];
-
         for (Shape s : shapeList) {
             List<PointF> points = s.points;
             int index = 0;
             Path linePath = null;
 
-            if (s.shapeType == LINE) {
+            if (s.shapeType == PATH) {
                 linePath = new Path();
             }
 
             for (PointF point : points) {
-                point.x = (point.x - tranX) / scale;
-                point.y = (point.y - tranY) / scale;
-
                 if (linePath != null) {
                     if (index == 0) {
                         linePath.moveTo(point.x, point.y);
@@ -313,13 +334,14 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
                 index++;
             }
 
-            if (s.shapeType == LINE) {
+            if (s.shapeType == PATH) {
                 bitmapCanvas.drawPath(linePath, paint);
             } else {
                 drawShape(bitmapCanvas, s);
             }
         }
 
+        //绘制右下角日期文字
         String text = getCurrentDate();
         textPaint.setColor(Color.RED);
         textPaint.setAntiAlias(true);
@@ -328,7 +350,6 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
         int margin = (int) dpToPx(8);
         bitmapCanvas.drawText(text, drawable.getIntrinsicWidth() - textBounds.width() - margin,
                 drawable.getIntrinsicHeight() - margin, textPaint);
-        bitmapCanvas.save();
         return bitmap;
     }
 
@@ -348,20 +369,10 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
 
     @Override
     public boolean onScale(ScaleGestureDetector detector) {
-        float scaleFactor = detector.getScaleFactor();
-        imageMatrix.postScale(scaleFactor, scaleFactor, detector.getFocusX(), detector.getFocusY());
+        float factor = detector.getScaleFactor();
+        imageMatrix.postScale(factor, factor, detector.getFocusX(), detector.getFocusY());
         setImageMatrix(imageMatrix);
         return true;
-    }
-
-    @Override
-    public boolean onScaleBegin(ScaleGestureDetector detector) {
-        return pointerCount > 1;
-    }
-
-    @Override
-    public void onScaleEnd(ScaleGestureDetector detector) {
-
     }
 
     @Override
@@ -377,8 +388,106 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
         }
     }
 
+    @Override
+    public boolean onScaleBegin(ScaleGestureDetector detector) {
+        return pointerCount > 1;
+    }
+
+    @Override
+    public void onScaleEnd(ScaleGestureDetector detector) {
+    }
+
     public void scaleAndTranslate() {
         scaleAndTranslate = true;
+    }
+
+    /**
+     * 获取手绘图片保存的数据
+     *
+     * @return
+     */
+    public String getShapeString() {
+        if (shapeList == null || shapeList.isEmpty()) {
+            return null;
+        }
+
+        try {
+            JSONArray array = new JSONArray();
+            for (Shape s : shapeList) {
+                List<PointF> points = new ArrayList<>();
+                switch (shapeType) {
+                    case PATH:
+                        points.addAll(s.getPoints());
+                        break;
+
+                    case LINE:
+                    case OVAL:
+                    case RECT:
+                        if (s.hasTwoPoint()) {
+                            PointF firstPoint = s.getFirstPoint();
+                            PointF lastPoint = s.getLastPoint();
+                            points.add(firstPoint);
+                            points.add(lastPoint);
+                        }
+                        break;
+                }
+
+                if (points.isEmpty()) {
+                    continue;
+                }
+
+                JSONObject shapeJo = new JSONObject();
+                int shapeType = s.getShapeType();
+                shapeJo.put("shapeType", shapeType);
+
+                JSONArray pointArray = new JSONArray();
+                for (PointF point : points) {
+                    JSONObject pointJo = new JSONObject();
+                    pointJo.put("x", point.x);
+                    pointJo.put("y", point.y);
+                    pointArray.put(pointJo);
+                }
+                shapeJo.put("points", pointArray);
+                array.put(shapeJo);
+            }
+
+            if (array.length() > 0) {
+                return array.toString();
+            }
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public void setShapeData(String shapeData) {
+        if (TextUtils.isEmpty(shapeData)) {
+            return;
+        }
+        List<Shape> shapes = new ArrayList<>();
+        try {
+            JSONArray array = new JSONArray(shapeData);
+            int length = array.length();
+            for (int i = 0; i < length; i++) {
+                JSONObject shapeJo = array.getJSONObject(i);
+                Shape shape = new Shape();
+                shapes.add(shape);
+                shape.setShapeType(shapeJo.getInt("shapeType"));
+
+                JSONArray pointArray = shapeJo.getJSONArray("points");
+                int pointLength = pointArray.length();
+                for (int j = 0; j < pointLength; j++) {
+                    JSONObject point = pointArray.getJSONObject(j);
+                    float x = (float) point.getDouble("x");
+                    float y = (float) point.getDouble("y");
+                    shape.addPoint(x, y);
+                }
+            }
+            shapeList.addAll(shapes);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
     }
 
     private static class Shape {
@@ -409,5 +518,20 @@ public class EditImageView extends AppCompatImageView implements MoveGestureDete
             return points.get(points.size() - 1);
         }
 
+        public int getShapeType() {
+            return shapeType;
+        }
+
+        public void setShapeType(int shapeType) {
+            this.shapeType = shapeType;
+        }
+
+        public List<PointF> getPoints() {
+            return points;
+        }
+
+        public void setPoints(List<PointF> points) {
+            this.points = points;
+        }
     }
 }
