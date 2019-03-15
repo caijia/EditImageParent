@@ -462,6 +462,9 @@ public class EditImageView extends AppCompatImageView implements
     }
 
     public void setShapeData(String shapeData) {
+        if (scaleAndTranslate) {
+            return;
+        }
         if (TextUtils.isEmpty(shapeData)) {
             return;
         }
@@ -481,6 +484,13 @@ public class EditImageView extends AppCompatImageView implements
                     JSONObject point = pointArray.getJSONObject(j);
                     float x = (float) point.getDouble("x");
                     float y = (float) point.getDouble("y");
+                    if (shapeType == PATH) {
+                        if (j == 0) {
+                            shape.path.moveTo(x, y);
+                        } else {
+                            shape.path.lineTo(x, y);
+                        }
+                    }
                     shape.addPoint(x, y);
                 }
             }

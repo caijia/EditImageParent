@@ -148,7 +148,7 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
             if (customBitmap != null && !customBitmap.isRecycled()) {
                 customBitmap.recycle();
             }
-            saveDrawData();
+            saveDrawData(editImageView.getShapeString(), backImagePath);
             handler.sendEmptyMessage(200);
         }).start();
     }
@@ -187,21 +187,17 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         return result;
     }
 
-    private void saveDrawData() {
-        if (editImageView == null) {
-            return;
-        }
+    private void saveDrawData(String shapeString, String imagePath) {
         try {
             //将shapeString插入到文件末尾保存
-            String shapeString = editImageView.getShapeString();
-            File saveFile = new File(backImagePath);
+            File saveFile = new File(imagePath);
             RandomAccessFile raf = new RandomAccessFile(saveFile, "rw");
             raf.seek(raf.length());
             raf.writeBytes(shapeString);
 
             //最后4位写入字符串长度
             raf.seek(raf.length());
-            raf.write(shapeString.length());
+            raf.writeInt(shapeString.length());
 
             raf.close();
         } catch (Exception e) {
@@ -249,7 +245,7 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         BufferedOutputStream bos = null;
         try {
             bos = new BufferedOutputStream(new FileOutputStream(saveImagePath), 1024 * 8);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bos);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, bos);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } finally {
@@ -262,15 +258,16 @@ public class EditImageActivity extends AppCompatActivity implements View.OnClick
         }
     }
 
-//    @Override
-//    public void onBackPressed() {
-//        boolean editBackImage = TextUtils.equals(imagePath, backImagePath);
-//        if (!editBackImage) {
-//            savePicture();
-//        } else {
-//            completeSaveBitmap();
-//        }
-//    }
+    @Override
+    public void onBackPressed() {
+        //编辑的如果是备份图片则不保存
+        boolean editBackImage = TextUtils.equals(imagePath, backImagePath);
+        if (!editBackImage) {
+            savePicture();
+        } else {
+            completeSaveBitmap();
+        }
+    }
 
     @Override
     public void onClick(View v) {
