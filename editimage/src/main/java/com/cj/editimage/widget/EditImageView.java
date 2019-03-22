@@ -140,6 +140,9 @@ public class EditImageView extends AppCompatImageView implements
     }
 
     private void addShapePoint(MotionEvent e) {
+        if (scaleAndTranslate) {
+            return;
+        }
         float[] invertPoint = getMapPoint(e.getX(), e.getY());
         float invertX = invertPoint[0];
         float invertY = invertPoint[1];
@@ -216,7 +219,7 @@ public class EditImageView extends AppCompatImageView implements
         }
 
         int save = canvas.save();
-        canvas.setMatrix(imageMatrix);
+        canvas.concat(imageMatrix);
         for (Shape s : shapeList) {
             drawShape(canvas, s);
         }
@@ -248,18 +251,54 @@ public class EditImageView extends AppCompatImageView implements
                 break;
 
             case OVAL:
-                if (s.hasTwoPoint()) {
-                    PointF firstPoint = s.getFirstPoint();
-                    PointF lastPoint = s.getLastPoint();
-                    canvas.drawOval(new RectF(firstPoint.x, firstPoint.y, lastPoint.x, lastPoint.y), paint);
-                }
-                break;
-
             case RECT:
                 if (s.hasTwoPoint()) {
                     PointF firstPoint = s.getFirstPoint();
                     PointF lastPoint = s.getLastPoint();
-                    canvas.drawRect(new RectF(firstPoint.x, firstPoint.y, lastPoint.x, lastPoint.y), paint);
+                    float left = 0;
+                    float top = 0;
+                    float right = 0;
+                    float bottom = 0;
+
+                    boolean leftTopToRightBottom = firstPoint.x < lastPoint.x &&
+                            firstPoint.y < lastPoint.y;
+                    if (leftTopToRightBottom) {
+                        left = firstPoint.x;
+                        top = firstPoint.y;
+                        right = lastPoint.x;
+                        bottom = lastPoint.y;
+                    }
+                    boolean rightBottomToLeftTop = firstPoint.x > lastPoint.x &&
+                            firstPoint.y > lastPoint.y;
+                    if (rightBottomToLeftTop) {
+                        left = lastPoint.x;
+                        top = lastPoint.y;
+                        right = firstPoint.x;
+                        bottom = firstPoint.y;
+                    }
+                    boolean rightTopToLeftBottom = firstPoint.x > lastPoint.x &&
+                            firstPoint.y < lastPoint.y;
+                    if (rightTopToLeftBottom) {
+                        left = lastPoint.x;
+                        top = firstPoint.y;
+                        right = firstPoint.x;
+                        bottom = lastPoint.y;
+                    }
+                    boolean leftBottomToRightTop = firstPoint.x < lastPoint.x &&
+                            firstPoint.y > lastPoint.y;
+                    if (leftBottomToRightTop) {
+                        left = firstPoint.x;
+                        top = lastPoint.y;
+                        right = lastPoint.x;
+                        bottom = firstPoint.y;
+                    }
+
+                    boolean isRect = shapeType == RECT;
+                    if (isRect) {
+                        canvas.drawRect(new RectF(left, top, right, bottom), paint);
+                    } else {
+                        canvas.drawOval(new RectF(left, top, right, bottom), paint);
+                    }
                 }
                 break;
         }
@@ -415,7 +454,7 @@ public class EditImageView extends AppCompatImageView implements
             JSONArray array = new JSONArray();
             for (Shape s : shapeList) {
                 List<PointF> points = new ArrayList<>();
-                switch (shapeType) {
+                switch (s.shapeType) {
                     case PATH:
                         points.addAll(s.getPoints());
                         break;
@@ -462,9 +501,6 @@ public class EditImageView extends AppCompatImageView implements
     }
 
     public void setShapeData(String shapeData) {
-        if (scaleAndTranslate) {
-            return;
-        }
         if (TextUtils.isEmpty(shapeData)) {
             return;
         }
@@ -484,7 +520,7 @@ public class EditImageView extends AppCompatImageView implements
                     JSONObject point = pointArray.getJSONObject(j);
                     float x = (float) point.getDouble("x");
                     float y = (float) point.getDouble("y");
-                    if (shapeType == PATH) {
+                    if (shape.shapeType == PATH) {
                         if (j == 0) {
                             shape.path.moveTo(x, y);
                         } else {
